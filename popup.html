@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 370px; padding: 18px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; margin: 0; }
+    .header { text-align: center; margin-bottom: 14px; }
+    .header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+    .header p { margin: 5px 0 0 0; font-size: 12px; opacity: 0.85; }
+    .toggle-container, .site-container { background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+    .main-toggle, .option, .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 14px; }
+    .row:last-child, .option:last-child { margin-bottom: 0; }
+    .toggle-switch { position: relative; width: 50px; height: 25px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.3); transition: 0.4s; border-radius: 25px; }
+    .slider:before { position: absolute; content: ""; height: 19px; width: 19px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; }
+    input:checked + .slider { background-color: #4CAF50; }
+    input:checked + .slider:before { transform: translateX(25px); }
+    .status { background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 10px; text-align: center; font-size: 14px; }
+    .protected { color: #4CAF50; font-weight: bold; }
+    .disabled { color: #ff6b6b; font-weight: bold; }
+    .badge { padding: 2px 6px; border-radius: 6px; font-size: 12px; background: rgba(255,255,255,0.2); margin-left: 6px; }
+    .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { border: none; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; }
+    button:hover { background: rgba(255,255,255,0.3); }
+    a { color: white; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🛡️ Privacy Shield</h1>
+    <p>Protección contra fingerprinting</p>
+  </div>
+
+  <div class="toggle-container">
+    <div class="main-toggle">
+      <span>Protección activa</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="enabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option">
+      <span>User Agent</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofUserAgent">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option">
+      <span>Zona horaria</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofTimezone">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option">
+      <span>WebGL</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofWebGL">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option">
+      <span>Canvas</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofCanvas">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="site-container">
+    <div class="row"><strong>Sitio actual:</strong> <span id="currentHost">(cargando...)</span></div>
+    <div class="row">Estado en listas: <span id="listStatus" class="badge">-</span></div>
+    <div class="buttons">
+      <button id="addWhitelist">➕ Lista blanca</button>
+      <button id="addBlacklist">➕ Lista negra</button>
+      <button id="removeFromLists">🗑️ Quitar</button>
+      <a id="openOptions" href="#">⚙️ Gestionar listas</a>
+    </div>
+  </div>
+
+  <div class="status" id="status">
+    <span class="protected">✅ Protegido</span>
+  </div>
+
+  <div class="info">
+    <strong>ℹ️ Información:</strong><br>
+    Usa listas para decidir en qué sitios minimizar cambios (blanca) o reforzar protección (negra). Puedes gestionar patrones en la página de opciones.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
