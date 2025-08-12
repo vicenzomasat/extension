@@ -24,6 +24,7 @@
     button { border: none; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.2); color: white; cursor: pointer; }
     button:hover { background: rgba(255,255,255,0.3); }
     a { color: white; }
+    .hint { font-size: 12px; opacity: 0.8; }
   </style>
 </head>
 <body>
@@ -72,6 +73,24 @@
         <span class="slider"></span>
       </label>
     </div>
+
+    <!-- NEW: Opciones avanzadas -->
+    <div class="option">
+      <span>Resolución/Pantalla</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofScreen">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option">
+      <span>CPU Cores (hardwareConcurrency)</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="spoofHardware">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="hint">Estas opciones avanzadas están desactivadas por defecto porque pueden afectar compatibilidad en algunos sitios.</div>
   </div>
 
   <div class="site-container">

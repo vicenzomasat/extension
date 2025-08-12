@@ -2,23 +2,27 @@
 
 Extensión para navegadores basados en Chromium que reduce el fingerprinting con cambios mínimos. Incluye listas configurables (Blanca/Negra) para control granular por dominio.
 
-## Novedades v1.1.0
+## Novedades recientes
 
-- **Listas configurables:**
-  - **Lista Blanca:** dominios de confianza donde se minimiza la intervención (preserva autenticación).
-  - **Lista Negra:** dominios donde se fuerza la protección.
-  - **Patrones:** dominios exactos (example.com) o comodín de prefijo (*.example.com). Sin regex.
-  - **Sanitización** de entradas para evitar patrones inválidos.
+- Opciones avanzadas (desactivadas por defecto):
+  - Resolución/Pantalla: falsifica propiedades de `screen` (width, height, avail*), `colorDepth`, `pixelDepth` y alinea `devicePixelRatio`.
+  - CPU Cores: falsifica `navigator.hardwareConcurrency` a un valor estable (4) para evitar variaciones detectables.
+- Integración con listas: las opciones avanzadas se respetan por dominio con la misma precedencia (Lista Negra > Lista Blanca > Normal).
+- Seguridad y robustez: las anulaciones son defensivas, con comprobaciones de configurabilidad y fallbacks (Proxy de `window.screen` si procede). Todo envuelto en try/catch para no romper la página.
 
-- **UI mejorada:**
-  - **Popup** con botones rápidos para añadir/quitar el sitio actual a/de listas.
-  - **Página de opciones** para gestionar ambas listas.
+## Advertencias sobre las opciones avanzadas
 
-- **Robustez:**
-  - **Defaults conservadores** (Canvas + WebGL activos; UA y Timezone opcionales y off por defecto).
-  - **Precedencia clara:** si un dominio está en ambas listas, prevalece Lista Negra.
-  - **Inyección temprana** y defensiva (sin modificar headers).
-  - **Protecciones CSP-safe** con manejo de errores.
+- Estas funciones pueden afectar el comportamiento de algunos sitios (por ejemplo, diseño responsivo o detección de zoom). Por eso están desactivadas por defecto. Si las habilitas y observas problemas, añade el dominio a la Lista Blanca o desactívalas temporalmente.
+
+## Desarrollo
+
+- Helper opcional: `tools/launch_vivaldi.py` permite abrir Vivaldi con la extensión cargada para pruebas locales. Requiere tener `vivaldi` en PATH.
+
+```
+python3 tools/launch_vivaldi.py --ext-path /ruta/a/la/extension
+```
+
+Si no se pasa `--ext-path`, intentará resolver la carpeta del repo automáticamente.
 
 ## Características de Protección
 
@@ -41,6 +45,19 @@ Extensión para navegadores basados en Chromium que reduce el fingerprinting con
 - **Por defecto OFF** para evitar incompatibilidades
 - Limitado a `Intl.DateTimeFormat`
 - Configurable via popup
+
+### Screen/Resolution Spoofing
+- **Por defecto OFF** para mantener compatibilidad
+- Falsifica propiedades del objeto `screen` (width, height, availWidth, availHeight, colorDepth, pixelDepth)
+- Alinea `devicePixelRatio` a un valor consistente (1)
+- Implementación defensiva con fallbacks (prototipo Screen + Proxy + direct assignment)
+- Puede afectar diseño responsivo y detección de zoom
+
+### Hardware Concurrency Spoofing
+- **Por defecto OFF** para evitar problemas de compatibilidad
+- Falsifica `navigator.hardwareConcurrency` a un valor estable (4)
+- Evita variaciones detectables que pueden flaggear detectores avanzados
+- Valor configurable en futuras versiones
 
 ## Gestión de Listas
 
@@ -91,7 +108,9 @@ Extensión para navegadores basados en Chromium que reduce el fingerprinting con
   spoofCanvas: true,       // Canvas protegido
   preserveAuth: true,      // Preservar autenticación
   whitelistPatterns: [],   // Lista blanca vacía
-  blacklistPatterns: []    // Lista negra vacía
+  blacklistPatterns: [],   // Lista negra vacía
+  spoofScreen: false,      // Screen spoofing desactivado
+  spoofHardware: false     // Hardware spoofing desactivado
 }
 ```
 

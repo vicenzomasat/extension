@@ -54,6 +54,8 @@ function refreshListStatus() {
 document.addEventListener('DOMContentLoaded', function() {
   chrome.storage.sync.get([
     'enabled', 'spoofUserAgent', 'spoofTimezone', 'spoofWebGL', 'spoofCanvas',
+    // NEW:
+    'spoofScreen', 'spoofHardware',
     'whitelistPatterns', 'blacklistPatterns'
   ], function(result) {
     document.getElementById('enabled').checked = result.enabled !== false;
@@ -61,16 +63,28 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('spoofTimezone').checked = result.spoofTimezone === true;
     document.getElementById('spoofWebGL').checked = result.spoofWebGL !== false;
     document.getElementById('spoofCanvas').checked = result.spoofCanvas !== false;
+    // NEW defaults
+    document.getElementById('spoofScreen').checked = result.spoofScreen === true;
+    document.getElementById('spoofHardware').checked = result.spoofHardware === true;
 
     refreshListStatus();
     updateStatus();
   });
 
-  const toggles = ['enabled', 'spoofUserAgent', 'spoofTimezone', 'spoofWebGL', 'spoofCanvas'];
+  const toggles = [
+    'enabled', 'spoofUserAgent', 'spoofTimezone', 'spoofWebGL', 'spoofCanvas',
+    // NEW toggles wired
+    'spoofScreen', 'spoofHardware'
+  ];
   toggles.forEach(id => {
-    document.getElementById(id).addEventListener('change', function() {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', function() {
       const settings = {};
-      toggles.forEach(t => settings[t] = document.getElementById(t).checked);
+      toggles.forEach(t => {
+        const node = document.getElementById(t);
+        if (node) settings[t] = node.checked;
+      });
       chrome.runtime.sendMessage({ action: 'updateSettings', settings }, function(resp) {
         if (resp && resp.success) {
           updateStatus();
