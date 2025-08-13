@@ -1,5 +1,10 @@
 // NOTE: Keep previous behavior commented with `// OLD:` when replaced.
 // Service Worker para manejar la lógica de fondo
+
+// Import persona generator and fingerprint detector for Phase 2
+import { getOrCreatePersonaForDomain, getPersonaStats } from './core/persona-generator.js';
+import { fingerprintDetector, FingerprintCategories, DetectionSeverity } from './core/fingerprint-detector.js';
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Privacy Shield extension installed');
 
@@ -89,11 +94,60 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
-  // Handle fingerprinting detection alerts
-  if (request.action === 'fingerprintingDetected' && sender.tab) {
+  // NEW: Handle GET_PERSONA requests for Phase 2
+  if (request.type === 'GET_PERSONA' && sender.tab) {
+    (async () => {
+      try {
+        const url = new URL(sender.tab.url);
+        const domain = url.hostname;
+        const persona = await getOrCreatePersonaForDomain(domain, request.osPreference);
+        sendResponse({ success: true, persona });
+      } catch (error) {
+        console.error('Error getting persona for domain:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true; // Keep message channel open for async response
+  }
+
+  // NEW: Handle PERSONA_STATS requests (for debugging)
+  if (request.type === 'PERSONA_STATS') {
+    (async () => {
+      try {
+        const stats = await getPersonaStats();
+        sendResponse({ success: true, stats });
+      } catch (error) {
+        console.error('Error getting persona stats:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+    return true;
+  }
+  
+  // NEW: Handle FINGERPRINT_STATS requests (for debugging)
+  if (request.type === 'FINGERPRINT_STATS') {
+    const stats = fingerprintDetector.getStats();
+    sendResponse({ success: true, stats });
+    return true;
+  }
+  
+  // Handle fingerprinting detection alerts - support both legacy and new message types
+  // OLD: request.action === 'fingerprintingDetected'
+  if ((request.action === 'fingerprintingDetected' || request.type === 'FINGERPRINTING_DETECTED') && sender.tab) {
     const tabId = sender.tab.id;
     const currentCount = tabDetections.get(tabId) || 0;
     tabDetections.set(tabId, currentCount + 1);
+    
+    // NEW: Also report to core fingerprint detector for categorization
+    if (request.type === 'FINGERPRINTING_DETECTED' && request.category && request.method) {
+      fingerprintDetector.reportDetection({
+        category: request.category,
+        method: request.method,
+        severity: request.severity || DetectionSeverity.MEDIUM,
+        property: request.property,
+        value: request.value
+      });
+    }
     
     // Update badge immediately
     updateIcon(tabId);
@@ -104,7 +158,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       method: request.method,
       count: tabDetections.get(tabId),
       url: request.url,
-      property: request.property
+      property: request.property,
+      // NEW: log message type and category for debugging
+      messageType: request.type || request.action,
+      category: request.category,
+      severity: request.severity
     });
     
     sendResponse({ success: true });

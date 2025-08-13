@@ -43,6 +43,59 @@
       if (window.__PRIVACY_SHIELD_INJECTED__) return;
       window.__PRIVACY_SHIELD_INJECTED__ = true;
 
+      // NEW: Persona-based protection system
+      let currentPersona = null;
+      let personaFetchAttempted = false;
+
+      // Fetch persona for coherent spoofing values
+      async function fetchPersonaData() {
+        if (personaFetchAttempted) return currentPersona;
+        personaFetchAttempted = true;
+
+        try {
+          if (window.__PRIVACY_SHIELD_PERSONA_API__ && window.__PRIVACY_SHIELD_PERSONA_API__.requestPersona) {
+            currentPersona = await window.__PRIVACY_SHIELD_PERSONA_API__.requestPersona();
+            console.log('Privacy Shield: Using persona', currentPersona.id, 'for domain');
+          }
+        } catch (error) {
+          console.warn('Privacy Shield: Failed to fetch persona, using fallback values:', error);
+        }
+
+        // Fallback to default values if persona fetch failed
+        if (!currentPersona) {
+          currentPersona = {
+            id: 'fallback-windows-chrome',
+            name: 'Fallback Windows Chrome',
+            os: 'windows',
+            browser: 'chrome',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            screen: {
+              width: 1920,
+              height: 1080,
+              availWidth: 1920,
+              availHeight: 1040,
+              colorDepth: 24,
+              pixelDepth: 24
+            },
+            devicePixelRatio: 1,
+            timezone: 'America/New_York',
+            language: 'en-US',
+            languages: ['en-US', 'en'],
+            webgl: {
+              vendor: 'Google Inc.',
+              renderer: 'ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'
+            },
+            hardwareConcurrency: 4,
+            platform: 'Win32'
+          };
+        }
+
+        return currentPersona;
+      }
+
+      // Initialize persona data immediately
+      fetchPersonaData();
+
       function getHostname() {
         try { return (new URL(location.href)).hostname.toLowerCase(); } catch(_) {}
         return (location.hostname || '').toLowerCase();
@@ -137,17 +190,26 @@
         };
       }
 
-      // WebGL: cubrir VENDOR/RENDERER y ocultar WEBGL_debug_renderer_info
+      // WebGL: Use persona-based VENDOR/RENDERER values for coherent spoofing
       if (pageSettings.spoofWebGL && applyProtection) {
         var patchGL = function(proto) {
           if (!proto || !proto.getParameter) return;
           var origGetParameter = proto.getParameter;
           proto.getParameter = function(param) {
             try {
-              if (param === this.RENDERER)  return 'Intel(R) HD Graphics 4000';
-              if (param === this.VENDOR)    return 'Intel Inc.';
-              if (param === 37446) return 'Intel(R) HD Graphics 4000'; // UNMASKED_RENDERER_WEBGL
-              if (param === 37445) return 'Intel Inc.';               // UNMASKED_VENDOR_WEBGL
+              // Wait for persona data and use persona values
+              if (currentPersona && currentPersona.webgl) {
+                if (param === this.RENDERER)  return currentPersona.webgl.renderer;
+                if (param === this.VENDOR)    return currentPersona.webgl.vendor;
+                if (param === 37446) return currentPersona.webgl.renderer; // UNMASKED_RENDERER_WEBGL
+                if (param === 37445) return currentPersona.webgl.vendor;   // UNMASKED_VENDOR_WEBGL
+              } else {
+                // OLD: Fallback to static values if persona not available
+                if (param === this.RENDERER)  return 'Intel(R) HD Graphics 4000';
+                if (param === this.VENDOR)    return 'Intel Inc.';
+                if (param === 37446) return 'Intel(R) HD Graphics 4000'; // UNMASKED_RENDERER_WEBGL
+                if (param === 37445) return 'Intel Inc.';               // UNMASKED_VENDOR_WEBGL
+              }
             } catch(_) {}
             return origGetParameter.call(this, param);
           };
@@ -163,21 +225,33 @@
         try { if (typeof WebGL2RenderingContext !== 'undefined') patchGL(WebGL2RenderingContext.prototype); } catch(_){}  
       }
 
-      // UA: solo JS (no headers). Por defecto desactivado para reducir inconsistencias
+      // UA: Use persona-based User Agent and platform for coherent spoofing
       if (pageSettings.spoofUserAgent && applyProtection) {
-        // OLD: No UA spoofing by default
-        var ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        // Use persona values for coherent spoofing
+        var ua = currentPersona ? currentPersona.userAgent : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        var platform = currentPersona ? currentPersona.platform : 'Win32';
+        
         safeDefine(Navigator.prototype, 'userAgent', { get: function(){ return ua; } });
-        safeDefine(Navigator.prototype, 'platform',  { get: function(){ return 'Win32'; } });
+        safeDefine(Navigator.prototype, 'platform',  { get: function(){ return platform; } });
+        
+        // NEW: Also spoof language to match persona
+        if (currentPersona && currentPersona.language) {
+          safeDefine(Navigator.prototype, 'language', { get: function(){ return currentPersona.language; } });
+        }
+        if (currentPersona && currentPersona.languages) {
+          safeDefine(Navigator.prototype, 'languages', { get: function(){ return currentPersona.languages.slice(); } });
+        }
       }
 
-      // Timezone: limitado; por defecto desactivado para evitar inconsistencias
+      // Timezone: Use persona-based timezone for coherent spoofing
       if (pageSettings.spoofTimezone && applyProtection) {
+        var personaTimezone = currentPersona && currentPersona.timezone ? currentPersona.timezone : 'UTC';
+        
         var origResolved = Intl.DateTimeFormat.prototype.resolvedOptions;
         Object.defineProperty(Intl.DateTimeFormat.prototype, 'resolvedOptions', {
           value: function() {
             var o = origResolved.call(this);
-            return Object.assign({}, o, { timeZone: 'UTC' });
+            return Object.assign({}, o, { timeZone: personaTimezone });
           }
         });
       }
@@ -233,29 +307,31 @@
       }
       */
 
-      // NEW: Screen spoof (reworked: no DPR tamper, no Screen.prototype edits)
+      // NEW: Screen spoof using persona data for coherent values
       if (pageSettings.spoofScreen && applyProtection) {
         try {
-          // Spoof fijo: siempre 1920x1080 (FHD). Mantener DPR real.
-          const FAKE_W = 1920;
-          const FAKE_H = 1080;
-          const FAKE_AW = 1920; // disponible (sin barra): común en desktop
-          const FAKE_AH = 1040; // resta ~40px (taskbar/menú) para parecer realista
+          // Use persona screen values if available, otherwise fallback to static
+          var screenData = currentPersona && currentPersona.screen ? currentPersona.screen : {
+            width: 1920,
+            height: 1080,
+            availWidth: 1920,
+            availHeight: 1040,
+            colorDepth: 24,
+            pixelDepth: 24
+          };
 
           const _origScreen = window.screen;
-          const cd = _origScreen.colorDepth;
-          const pd = _origScreen.pixelDepth;
 
           const proxiedScreen = new Proxy(_origScreen, {
             get(target, prop) {
-              if (prop === 'width')       return FAKE_W;
-              if (prop === 'height')      return FAKE_H;
-              if (prop === 'availWidth')  return FAKE_AW;
-              if (prop === 'availHeight') return FAKE_AH;
+              if (prop === 'width')       return screenData.width;
+              if (prop === 'height')      return screenData.height;
+              if (prop === 'availWidth')  return screenData.availWidth;
+              if (prop === 'availHeight') return screenData.availHeight;
               if (prop === 'availLeft')   return 0;
               if (prop === 'availTop')    return 0;
-              if (prop === 'colorDepth')  return cd;
-              if (prop === 'pixelDepth')  return pd;
+              if (prop === 'colorDepth')  return screenData.colorDepth;
+              if (prop === 'pixelDepth')  return screenData.pixelDepth;
               const v = target[prop];
               return (typeof v === 'function') ? v.bind(target) : v;
             },
@@ -268,16 +344,22 @@
           // Usa helper seguro
           safeDefine(window, 'screen', { get() { return proxiedScreen; } });
 
-          // Importante: NO tocar window.devicePixelRatio (mantener real)
-          // safeDefine(window, 'devicePixelRatio', { get() { return 1; } }); // NO USAR
+          // NEW: Also spoof devicePixelRatio if provided in persona
+          if (currentPersona && currentPersona.devicePixelRatio) {
+            safeDefine(window, 'devicePixelRatio', { get() { return currentPersona.devicePixelRatio; } });
+          }
+          // OLD: Importante: NO tocar window.devicePixelRatio (mantener real) - now conditional based on persona
         } catch(_) {}
       }
 
-      // NEW: matchMedia patch (solo device-width/height; evita desalineo con screen)
+      // NEW: matchMedia patch using persona screen dimensions
       if (pageSettings.spoofScreen && applyProtection) {
         try {
-          const FAKE_W = 1920;
-          const FAKE_H = 1080;
+          // Use persona screen dimensions if available
+          var screenData = currentPersona && currentPersona.screen ? currentPersona.screen : {
+            width: 1920,
+            height: 1080
+          };
 
           const _nativeMM = window.matchMedia;
           const DEVICE_RE = /(min|max)?-?device-(width|height)\s*: \s*(\d+(\.\d+)?)px/i;
@@ -288,7 +370,7 @@
             const bound = (m[1] || '').toLowerCase();   // '', 'min', 'max'
             const side  = m[2].toLowerCase();           // 'width' | 'height'
             const px    = parseFloat(m[3]);
-            const val   = (side === 'width') ? FAKE_W : FAKE_H;
+            const val   = (side === 'width') ? screenData.width : screenData.height;
             if (!bound)         return val === px;
             if (bound === 'min') return val >= px;
             if (bound === 'max') return val <= px;
@@ -339,10 +421,10 @@
       }
       */
 
-      // NEW: hardwareConcurrency spoof (opcional)
+      // NEW: hardwareConcurrency spoof using persona data
       if (pageSettings.spoofHardware && applyProtection) {
         try {
-          var cores = 4; // valor estable y común
+          var cores = currentPersona && currentPersona.hardwareConcurrency ? currentPersona.hardwareConcurrency : 4;
           safeDefine(Navigator.prototype, 'hardwareConcurrency', { get: function(){ return cores; } });
         } catch(_) {}
       }
@@ -441,6 +523,8 @@
                 window.postMessage({ 
                   type: 'PRIVACY_SHIELD_DETECTION', 
                   method: 'canvas_fingerprint',
+                  property: 'canvas.size',
+                  value: this.width + 'x' + this.height,
                   count: fingerprintingDetected 
                 }, '*');
               }
@@ -461,9 +545,24 @@
                 ];
                 if (suspiciousParams.includes(param)) {
                   fingerprintingDetected++;
+                  
+                  // Map parameter number to name for better reporting
+                  const paramNames = {
+                    37445: 'UNMASKED_VENDOR_WEBGL',
+                    37446: 'UNMASKED_RENDERER_WEBGL',
+                    7936: 'VENDOR',
+                    7937: 'RENDERER',
+                    7938: 'VERSION',
+                    35724: 'SHADING_LANGUAGE_VERSION'
+                  };
+                  
+                  const paramName = paramNames[param] || param.toString();
+                  
                   window.postMessage({ 
                     type: 'PRIVACY_SHIELD_DETECTION', 
                     method: 'webgl_fingerprint',
+                    property: 'webgl.' + paramName,
+                    value: param.toString(),
                     count: fingerprintingDetected 
                   }, '*');
                 }
@@ -514,12 +613,40 @@
     window.addEventListener('message', function(event) {
       if (event.source !== window) return;
       if (event.data && event.data.type === 'PRIVACY_SHIELD_DETECTION') {
-        // Send detection data to background script for badge updates
+        // Map legacy detection methods to new categories for enhanced reporting
+        const detectionMapping = {
+          'canvas_fingerprint': { category: 'canvas', severity: 'high' },
+          'webgl_fingerprint': { category: 'webgl', severity: 'high' },
+          'navigator_fingerprint': { category: 'navigator', severity: 'medium' },
+          'screen_fingerprint': { category: 'screen', severity: 'medium' },
+          'audio_fingerprint': { category: 'audio', severity: 'high' },
+          'font_fingerprint': { category: 'fonts', severity: 'medium' }
+        };
+
+        const mappedDetection = detectionMapping[event.data.method] || {
+          category: 'navigator',
+          severity: 'medium'
+        };
+
+        // Send both legacy and new format messages for compatibility
+        // OLD: Keep legacy format for existing functionality
         chrome.runtime.sendMessage({
           action: 'fingerprintingDetected',
           method: event.data.method,
           count: event.data.count,
           property: event.data.property,
+          url: window.location.href
+        }).catch(() => {}); // Ignore if background script is not available
+
+        // NEW: Send enhanced detection message with categorization
+        chrome.runtime.sendMessage({
+          type: 'FINGERPRINTING_DETECTED',
+          category: mappedDetection.category,
+          method: event.data.method,
+          severity: mappedDetection.severity,
+          property: event.data.property,
+          value: event.data.value,
+          count: event.data.count,
           url: window.location.href
         }).catch(() => {}); // Ignore if background script is not available
       }
@@ -608,6 +735,32 @@
       // Inject protections using robust injection function
       injectProtections(settings, safeWhitelist, safeBlacklist);
     });
+
+    // NEW: Persona Request Helper Function
+    // Allow content scripts to request personas for the current domain
+    function requestPersonaForDomain(osPreference) {
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'GET_PERSONA',
+          osPreference: osPreference
+        }).then(response => {
+          if (response && response.success) {
+            resolve(response.persona);
+          } else {
+            reject(new Error(response?.error || 'Failed to get persona'));
+          }
+        }).catch(reject);
+      });
+    }
+
+    // NEW: Expose persona helper to injected scripts via window object
+    // This allows page-level protection scripts to access persona data
+    if (!window.__PRIVACY_SHIELD_PERSONA_API__) {
+      window.__PRIVACY_SHIELD_PERSONA_API__ = {
+        requestPersona: requestPersonaForDomain,
+        version: '2.0'
+      };
+    }
   } catch (e) {
     // En caso de error, no interferir con la página
   }
