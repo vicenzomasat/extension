@@ -429,34 +429,11 @@
   try {
     chrome.storage.sync.get(DEFAULTS, (settings)=>{
       if (!settings || settings.enabled===false) return;
-      function sanitize(arr){ 
-        if(!Array.isArray(arr)) return []; 
-        const out=[]; 
-        for(const raw of arr){ 
-          if(typeof raw!=='string') continue; 
-          let s=raw.trim().toLowerCase(); 
-          if(!s) continue; 
-          try { 
-            if (s.includes('://')){ 
-              const u=new URL(s); 
-              s=u.hostname.toLowerCase(); 
-            } 
-          }catch(_){ } 
-          s=s.replace(/^[\*\.]+/, ''); 
-          if (s.startsWith('*.')) s='*.'+s.slice(2).replace(/^[\*\.]+/,''); 
-          if (/[\r\n]/.test(s)) continue; 
-          if (s.length>255) continue; 
-          if (s.startsWith('*.')){ 
-            const base=s.slice(2); 
-            if(!base || base.includes('*')) continue; 
-            out.push('*.'+base);
-          } else { 
-            if (s.includes('*')) continue; 
-            out.push(s);
-          } 
-        } 
-        return Array.from(new Set(out)); 
-      }
+      function sanitize(arr){ if(!Array.isArray(arr)) return []; const out=[]; for(const raw of arr){ if(typeof raw!=='string') continue; let s=raw.trim().toLowerCase(); if(!s) continue; try { if (s.includes('://')){ const u=new URL(s); s=u.hostname.toLowerCase(); } }catch(_){ } s=s.replace(/^
+.+/, ''); if (s.startsWith('*.')) s='*.'+s.slice(2).replace(/^
+.+/,''); if (/
+|
+/.test(s)) continue; if (s.length>255) continue; if (s.startsWith('*.')){ const base=s.slice(2); if(!base || base.includes('*')) continue; out.push('*.'+base);} else { if (s.includes('*')) continue; out.push(s);} } return Array.from(new Set(out)); }
       const safeWL = sanitize([...(settings.whitelistPatterns||[]), ...BUILTIN_TRUSTED]);
       const safeBL = sanitize(settings.blacklistPatterns||[]);
       injectScript(pageMain, settings, safeWL, safeBL);
