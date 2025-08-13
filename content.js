@@ -441,6 +441,8 @@
                 window.postMessage({ 
                   type: 'PRIVACY_SHIELD_DETECTION', 
                   method: 'canvas_fingerprint',
+                  property: 'canvas.size',
+                  value: this.width + 'x' + this.height,
                   count: fingerprintingDetected 
                 }, '*');
               }
@@ -461,9 +463,24 @@
                 ];
                 if (suspiciousParams.includes(param)) {
                   fingerprintingDetected++;
+                  
+                  // Map parameter number to name for better reporting
+                  const paramNames = {
+                    37445: 'UNMASKED_VENDOR_WEBGL',
+                    37446: 'UNMASKED_RENDERER_WEBGL',
+                    7936: 'VENDOR',
+                    7937: 'RENDERER',
+                    7938: 'VERSION',
+                    35724: 'SHADING_LANGUAGE_VERSION'
+                  };
+                  
+                  const paramName = paramNames[param] || param.toString();
+                  
                   window.postMessage({ 
                     type: 'PRIVACY_SHIELD_DETECTION', 
                     method: 'webgl_fingerprint',
+                    property: 'webgl.' + paramName,
+                    value: param.toString(),
                     count: fingerprintingDetected 
                   }, '*');
                 }
@@ -514,12 +531,40 @@
     window.addEventListener('message', function(event) {
       if (event.source !== window) return;
       if (event.data && event.data.type === 'PRIVACY_SHIELD_DETECTION') {
-        // Send detection data to background script for badge updates
+        // Map legacy detection methods to new categories for enhanced reporting
+        const detectionMapping = {
+          'canvas_fingerprint': { category: 'canvas', severity: 'high' },
+          'webgl_fingerprint': { category: 'webgl', severity: 'high' },
+          'navigator_fingerprint': { category: 'navigator', severity: 'medium' },
+          'screen_fingerprint': { category: 'screen', severity: 'medium' },
+          'audio_fingerprint': { category: 'audio', severity: 'high' },
+          'font_fingerprint': { category: 'fonts', severity: 'medium' }
+        };
+
+        const mappedDetection = detectionMapping[event.data.method] || {
+          category: 'navigator',
+          severity: 'medium'
+        };
+
+        // Send both legacy and new format messages for compatibility
+        // OLD: Keep legacy format for existing functionality
         chrome.runtime.sendMessage({
           action: 'fingerprintingDetected',
           method: event.data.method,
           count: event.data.count,
           property: event.data.property,
+          url: window.location.href
+        }).catch(() => {}); // Ignore if background script is not available
+
+        // NEW: Send enhanced detection message with categorization
+        chrome.runtime.sendMessage({
+          type: 'FINGERPRINTING_DETECTED',
+          category: mappedDetection.category,
+          method: event.data.method,
+          severity: mappedDetection.severity,
+          property: event.data.property,
+          value: event.data.value,
+          count: event.data.count,
           url: window.location.href
         }).catch(() => {}); // Ignore if background script is not available
       }
@@ -608,6 +653,32 @@
       // Inject protections using robust injection function
       injectProtections(settings, safeWhitelist, safeBlacklist);
     });
+
+    // NEW: Persona Request Helper Function
+    // Allow content scripts to request personas for the current domain
+    function requestPersonaForDomain(osPreference) {
+      return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: 'GET_PERSONA',
+          osPreference: osPreference
+        }).then(response => {
+          if (response && response.success) {
+            resolve(response.persona);
+          } else {
+            reject(new Error(response?.error || 'Failed to get persona'));
+          }
+        }).catch(reject);
+      });
+    }
+
+    // NEW: Expose persona helper to injected scripts via window object
+    // This allows page-level protection scripts to access persona data
+    if (!window.__PRIVACY_SHIELD_PERSONA_API__) {
+      window.__PRIVACY_SHIELD_PERSONA_API__ = {
+        requestPersona: requestPersonaForDomain,
+        version: '2.0'
+      };
+    }
   } catch (e) {
     // En caso de error, no interferir con la página
   }
