@@ -3,13 +3,16 @@
   const DEFAULTS = {
     enabled: true,
     spoofUserAgent: false,   // desactivado por defecto para reducir inconsistencias
-    // OLD: spoofScreen: false, // removido del set de toggles soportados
+    // OLD: spoofScreen: false, // (reintroducido como opción controlada)
     spoofTimezone: false,    // desactivado por defecto (difícil alinear con offset real)
     spoofWebGL: true,        // eficaz y seguro
     spoofCanvas: true,       // eficaz con ruido mínimo
     preserveAuth: true,
     whitelistPatterns: [],
-    blacklistPatterns: []
+    blacklistPatterns: [],
+    // NEW: Opciones avanzadas (desactivadas por defecto)
+    spoofScreen: false,      // falsear Screen + devicePixelRatio (opcional)
+    spoofHardware: false     // falsear navigator.hardwareConcurrency (opcional)
   };
 
   const BUILTIN_TRUSTED = [
@@ -208,6 +211,62 @@
           });
         }
 
+        // NEW: Screen + devicePixelRatio spoof (opcional, desactivado por defecto)
+        if (pageSettings.spoofScreen && applyProtection) {
+          try {
+            var fake = {
+              width: 1920,
+              height: 1080,
+              availWidth: 1920,
+              availHeight: 1040,
+              colorDepth: 24,
+              pixelDepth: 24,
+              devicePixelRatio: 1
+            };
+
+            // Intento 1: Parchear en el prototipo Screen
+            try {
+              if (typeof Screen !== 'undefined') {
+                var sp = Screen.prototype;
+                var props = ['width','height','availWidth','availHeight','colorDepth','pixelDepth'];
+                for (var si=0; si<props.length; si++) {
+                  (function(k){
+                    var ok = safeDefine(sp, k, { configurable: true, enumerable: true, get: function(){ return fake[k]; } });
+                  })(props[si]);
+                }
+              }
+            } catch(_) {}
+
+            // Intento 2: Sobrescribir window.screen con un Proxy (si es posible)
+            try {
+              var originalScreen = window.screen;
+              var proxied = new Proxy(originalScreen, {
+                get: function(target, prop) {
+                  if (prop in fake) return fake[prop];
+                  var val = target[prop];
+                  return (typeof val === 'function') ? val.bind(target) : val;
+                },
+                has: function(target, prop) {
+                  if (prop in fake) return true;
+                  return prop in target;
+                }
+              });
+              safeDefine(window, 'screen', { get: function(){ return proxied; } });
+            } catch(_) {}
+
+            // Alinear devicePixelRatio
+            safeDefine(window, 'devicePixelRatio', { get: function(){ return fake.devicePixelRatio; } });
+          } catch(_) {}
+        }
+
+        // NEW: hardwareConcurrency spoof (opcional)
+        if (pageSettings.spoofHardware && applyProtection) {
+          try {
+            var cores = 4; // valor estable y común
+            safeDefine(Navigator.prototype, 'hardwareConcurrency', { get: function(){ return cores; } });
+          } catch(_) {}
+        }
+
         try { console.debug('Privacy Shield activo', { host, inBlacklist, inWhitelist, trustedMode, applyProtection }); } catch(_) {}
       })(${JSON.stringify({
         enabled: true,
@@ -215,7 +274,10 @@
         spoofTimezone: settings.spoofTimezone === true,
         spoofWebGL: settings.spoofWebGL !== false,
         spoofCanvas: settings.spoofCanvas !== false,
-        preserveAuth: settings.preserveAuth !== false
+        preserveAuth: settings.preserveAuth !== false,
+        // NEW: pasar flags avanzados
+        spoofScreen: settings.spoofScreen === true,
+        spoofHardware: settings.spoofHardware === true
       })}, ${JSON.stringify(safeWhitelist)}, ${JSON.stringify(safeBlacklist)});
       `;
 

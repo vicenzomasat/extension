@@ -4,7 +4,7 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log('Privacy Shield extension installed');
 
   // Configuración inicial (conservadora + listas vacías por defecto)
-  // OLD: chrome.storage.sync.set({ enabled: true, ... })
+  // OLD: chrome.storage.sync.set({ enabled: true, spoofUserAgent: false, spoofTimezone: false, spoofWebGL: true, spoofCanvas: true, preserveAuth: true })
   chrome.storage.sync.get(null, (current) => {
     const defaults = {
       enabled: true,
@@ -14,7 +14,10 @@ chrome.runtime.onInstalled.addListener(() => {
       spoofCanvas: true,
       preserveAuth: true,
       whitelistPatterns: [],
-      blacklistPatterns: []
+      blacklistPatterns: [],
+      // NEW defaults (avanzados)
+      spoofScreen: false,
+      spoofHardware: false
     };
     chrome.storage.sync.set(Object.assign({}, defaults, current || {}));
   });
