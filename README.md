@@ -134,6 +134,15 @@ Si no se pasa `--ext-path`, intentará resolver la carpeta del repo automáticam
 - **Sin modificación** de headers HTTP
 - **CSP-compatible** sin `eval()` o `unsafe-inline`
 
+## Assets / Icons
+
+The extension uses a new shield icon set for improved visibility and comprehensive size coverage:
+
+- **Shield Icons (Enabled State)**: `shield16.png`, `shield32.png`, `shield48.png`, `shield64.png`, `shield128.png`
+- **Legacy Icons (Disabled State)**: `icon16-disabled.png`, `icon48-disabled.png`, `icon128-disabled.png`
+
+The shield iconography provides better visual identification of the privacy protection status, with sizes covering all common use cases from browser toolbars to extension management pages.
+
 ## Desarrollo
 
 ### Estructura del Proyecto
