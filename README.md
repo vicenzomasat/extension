@@ -179,3 +179,14 @@ Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
 - ✅ Protección básica contra fingerprinting
 - ✅ Canvas, WebGL, UA, Timezone spoofing
 - ✅ Configuración simple
+
+## Assets
+
+### Iconos
+La extensión utiliza los nuevos íconos shield*.png:
+- `icons/shield16.png` - Icono 16x16 para la barra de herramientas
+- `icons/shield48.png` - Icono 48x48 para la gestión de extensiones  
+- `icons/shield128.png` - Icono 128x128 para la tienda de extensiones
+- Variantes desactivadas: `shield16-disabled.png`, `shield48-disabled.png`, `shield128-disabled.png`
+
+Los íconos anteriores (icon*.png) se mantienen por compatibilidad con historiales, pero ya no son referenciados por el manifest.

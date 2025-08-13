@@ -45,13 +45,13 @@ function updateIcon(tabId) {
     chrome.action.setIcon({
       tabId,
       path: enabled ? {
-        "16": "icons/icon16.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
+        "16": "icons/shield16.png",
+        "48": "icons/shield48.png",
+        "128": "icons/shield128.png"
       } : {
-        "16": "icons/icon16-disabled.png",
-        "48": "icons/icon48-disabled.png",
-        "128": "icons/icon128-disabled.png"
+        "16": "icons/shield16-disabled.png",
+        "48": "icons/shield48-disabled.png",
+        "128": "icons/shield128-disabled.png"
       }
     });
 
