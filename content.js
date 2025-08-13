@@ -1,4 +1,3 @@
-// NOTE: When altering prior logic, keep the original lines commented with `// OLD:` just above the new code.
 (function() {
   const DEFAULTS = {
     enabled: true,
@@ -160,11 +159,11 @@
             return origGetExtension.call(this, name);
           };
         };
-        try { if (typeof WebGLRenderingContext !== 'undefined') patchGL(WebGLRenderingContext.prototype); } catch(_){}
-        try { if (typeof WebGL2RenderingContext !== 'undefined') patchGL(WebGL2RenderingContext.prototype); } catch(_){}
+        try { if (typeof WebGLRenderingContext !== 'undefined') patchGL(WebGLRenderingContext.prototype); } catch(_){}  
+        try { if (typeof WebGL2RenderingContext !== 'undefined') patchGL(WebGL2RenderingContext.prototype); } catch(_){}  
       }
 
-      // UA: solo JS (no headers). Por defecto desactivado para reducir inconsistencias visibles
+      // UA: solo JS (no headers). Por defecto desactivado para reducir inconsistencias
       if (pageSettings.spoofUserAgent && applyProtection) {
         // OLD: No UA spoofing by default
         var ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -184,6 +183,8 @@
       }
 
       // NEW: Screen + devicePixelRatio spoof (opcional, desactivado por defecto)
+      // OLD: El bloque siguiente ha sido desactivado y reemplazado por un proxy de window.screen sin modificar Screen.prototype ni devicePixelRatio.
+      /* OLD:
       if (pageSettings.spoofScreen && applyProtection) {
         try {
           var fake = {
@@ -230,6 +231,113 @@
           safeDefine(window, 'devicePixelRatio', { get: function(){ return fake.devicePixelRatio; } });
         } catch(_) {}
       }
+      */
+
+      // NEW: Screen spoof (reworked: no DPR tamper, no Screen.prototype edits)
+      if (pageSettings.spoofScreen && applyProtection) {
+        try {
+          // Spoof fijo: siempre 1920x1080 (FHD). Mantener DPR real.
+          const FAKE_W = 1920;
+          const FAKE_H = 1080;
+          const FAKE_AW = 1920; // disponible (sin barra): común en desktop
+          const FAKE_AH = 1040; // resta ~40px (taskbar/menú) para parecer realista
+
+          const _origScreen = window.screen;
+          const cd = _origScreen.colorDepth;
+          const pd = _origScreen.pixelDepth;
+
+          const proxiedScreen = new Proxy(_origScreen, {
+            get(target, prop) {
+              if (prop === 'width')       return FAKE_W;
+              if (prop === 'height')      return FAKE_H;
+              if (prop === 'availWidth')  return FAKE_AW;
+              if (prop === 'availHeight') return FAKE_AH;
+              if (prop === 'availLeft')   return 0;
+              if (prop === 'availTop')    return 0;
+              if (prop === 'colorDepth')  return cd;
+              if (prop === 'pixelDepth')  return pd;
+              const v = target[prop];
+              return (typeof v === 'function') ? v.bind(target) : v;
+            },
+            has(target, prop) {
+              if (['width','height','availWidth','availHeight','availLeft','availTop','colorDepth','pixelDepth'].includes(prop)) return true;
+              return prop in target;
+            }
+          });
+
+          // Usa helper seguro
+          safeDefine(window, 'screen', { get() { return proxiedScreen; } });
+
+          // Importante: NO tocar window.devicePixelRatio (mantener real)
+          // safeDefine(window, 'devicePixelRatio', { get() { return 1; } }); // NO USAR
+        } catch(_) {}
+      }
+
+      // NEW: matchMedia patch (solo device-width/height; evita desalineo con screen)
+      if (pageSettings.spoofScreen && applyProtection) {
+        try {
+          const FAKE_W = 1920;
+          const FAKE_H = 1080;
+
+          const _nativeMM = window.matchMedia;
+          const DEVICE_RE = /(min|max)?-?device-(width|height)\s*: \s*(\d+(\.\d+)?)px/i;
+
+          function evalDeviceQuery(q) {
+            const m = q.match(DEVICE_RE);
+            if (!m) return null; // no es device-* 
+            const bound = (m[1] || '').toLowerCase();   // '', 'min', 'max'
+            const side  = m[2].toLowerCase();           // 'width' | 'height'
+            const px    = parseFloat(m[3]);
+            const val   = (side === 'width') ? FAKE_W : FAKE_H;
+            if (!bound)         return val === px;
+            if (bound === 'min') return val >= px;
+            if (bound === 'max') return val <= px;
+            return false;
+          }
+
+          window.matchMedia = function(query) {
+            const q = String(query || '');
+            const res = evalDeviceQuery(q);
+            if (res === null) return _nativeMM.call(this, q);
+
+            // Clonar forma de MediaQueryList nativa
+            const mql = _nativeMM.call(this, 'all');
+            try {
+              Object.defineProperty(mql, 'media',   { value: q, configurable: true });
+              Object.defineProperty(mql, 'matches', { get() { return !!res; }, configurable: true });
+            } catch(_) {}
+            return mql;
+          };
+
+          // Opcional: disimular toString() para reducir heurísticas simples
+          try {
+            const _toString = Function.prototype.toString;
+            Function.prototype.toString = new Proxy(_toString, {
+              apply(target, thisArg, args) {
+                try { if (thisArg === window.matchMedia) return 'function matchMedia() { [native code] }'; } catch(_) {}
+                return target.apply(thisArg, args);
+              }
+            });
+          } catch(_) {}
+        } catch(e) {}
+      }
+
+      /* Opcional: visualViewport proxy (solo si querés máxima coherencia)
+      if ('visualViewport' in window && pageSettings.spoofScreen && applyProtection) {
+        try {
+          var _vv = window.visualViewport;
+          var _vvProxy = new Proxy(_vv, {
+            get: function(target, prop) {
+              if (prop === 'width')  return Math.min(window.screen.width,  window.innerWidth  || target.width);
+              if (prop === 'height') return Math.min(window.screen.height, window.innerHeight || target.height);
+              var v = target[prop];
+              return (typeof v === 'function') ? v.bind(target) : v;
+            }
+          });
+          safeDefine(window, 'visualViewport', { get: function(){ return _vvProxy; } });
+        } catch(_) {}
+      }
+      */
 
       // NEW: hardwareConcurrency spoof (opcional)
       if (pageSettings.spoofHardware && applyProtection) {
@@ -363,60 +471,59 @@
               return origGetParameter.call(this, param);
             };
           };
-          try { if (typeof WebGLRenderingContext !== 'undefined') patchGLDetection(WebGLRenderingContext.prototype); } catch(_){}
-          try { if (typeof WebGL2RenderingContext !== 'undefined') patchGLDetection(WebGL2RenderingContext.prototype); } catch(_){}
-
-          // Monitor navigator property access
-          var navigatorAccess = 0;
-          var suspiciousProps = ['userAgent', 'platform', 'hardwareConcurrency', 'deviceMemory', 'connection'];
-          suspiciousProps.forEach(function(prop) {
-            try {
-              if (prop in Navigator.prototype) {
-                var desc = Object.getOwnPropertyDescriptor(Navigator.prototype, prop);
-                if (desc && desc.get) {
-                  var originalGetter = desc.get;
-                  Object.defineProperty(Navigator.prototype, prop, {
-                    get: function() {
-                      navigatorAccess++;
-                      if (navigatorAccess > 3) { // threshold for detection
-                        fingerprintingDetected++;
-                        window.postMessage({ 
-                          type: 'PRIVACY_SHIELD_DETECTION', 
-                          method: 'navigator_fingerprint',
-                          property: prop,
-                          count: fingerprintingDetected 
-                        }, '*');
-                      }
-                      return originalGetter.call(this);
-                    },
-                    configurable: true,
-                    enumerable: true
-                  });
-                }
-              }
-            } catch(_) {}
-          });
+          try { if (typeof WebGLRenderingContext !== 'undefined') patchGLDetection(WebGLRenderingContext.prototype); } catch(_){}  
+          try { if (typeof WebGL2RenderingContext !== 'undefined') patchGLDetection(WebGL2RenderingContext.prototype); } catch(_){}  
         } catch(_) {}
       }
 
-      try { console.debug('Privacy Shield activo', { host, inBlacklist, inWhitelist, trustedMode, applyProtection, detectionEnabled: pageSettings.detectFingerprinting }); } catch(_) {}
-    })(${JSON.stringify({
-      enabled: true,
-      spoofUserAgent: settings.spoofUserAgent === true,
-      spoofTimezone: settings.spoofTimezone === true,
-      spoofWebGL: settings.spoofWebGL !== false,
-      spoofCanvas: settings.spoofCanvas !== false,
-      preserveAuth: settings.preserveAuth !== false,
-      // NEW: pasar flags avanzados
-      spoofScreen: settings.spoofScreen === true,
-      spoofHardware: settings.spoofHardware === true,
-      // AGGRESSIVE: nuevas protecciones
-      blockBattery: settings.blockBattery !== false,
-      blockGamepad: settings.blockGamepad !== false,
-      blockWebRTC: settings.blockWebRTC !== false,
-      blockFonts: settings.blockFonts !== false,
-      detectFingerprinting: settings.detectFingerprinting !== false
-    })}, ${JSON.stringify(safeWhitelist)}, ${JSON.stringify(safeBlacklist)});
+      // Monitor navigator property access
+      var navigatorAccess = 0;
+      var suspiciousProps = ['userAgent', 'platform', 'hardwareConcurrency', 'deviceMemory', 'connection'];
+      suspiciousProps.forEach(function(prop) {
+        try {
+          if (prop in Navigator.prototype) {
+            var desc = Object.getOwnPropertyDescriptor(Navigator.prototype, prop);
+            if (desc && desc.get) {
+              var originalGetter = desc.get;
+              Object.defineProperty(Navigator.prototype, prop, {
+                get: function() {
+                  navigatorAccess++;
+                  if (navigatorAccess > 3) { // threshold for detection
+                    fingerprintingDetected++;
+                    window.postMessage({ 
+                      type: 'PRIVACY_SHIELD_DETECTION', 
+                      method: 'navigator_fingerprint',
+                      property: prop,
+                      count: fingerprintingDetected 
+                    }, '*');
+                  }
+                  return originalGetter.call(this);
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          }
+        } catch(_) {}
+      });
+    } catch (e) {
+      // En caso de error, no interferir con la página
+    }
+
+    // Listen for fingerprinting detection messages from injected script
+    window.addEventListener('message', function(event) {
+      if (event.source !== window) return;
+      if (event.data && event.data.type === 'PRIVACY_SHIELD_DETECTION') {
+        // Send detection data to background script for badge updates
+        chrome.runtime.sendMessage({
+          action: 'fingerprintingDetected',
+          method: event.data.method,
+          count: event.data.count,
+          property: event.data.property,
+          url: window.location.href
+        }).catch(() => {}); // Ignore if background script is not available
+      }
+    }, false);
     `;
 
     // Multiple injection attempts for robustness
@@ -504,19 +611,4 @@
   } catch (e) {
     // En caso de error, no interferir con la página
   }
-
-  // Listen for fingerprinting detection messages from injected script
-  window.addEventListener('message', function(event) {
-    if (event.source !== window) return;
-    if (event.data && event.data.type === 'PRIVACY_SHIELD_DETECTION') {
-      // Send detection data to background script for badge updates
-      chrome.runtime.sendMessage({
-        action: 'fingerprintingDetected',
-        method: event.data.method,
-        count: event.data.count,
-        property: event.data.property,
-        url: window.location.href
-      }).catch(() => {}); // Ignore if background script is not available
-    }
-  }, false);
 })();
