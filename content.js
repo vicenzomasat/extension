@@ -355,6 +355,120 @@
       }
     }
 
+    // --- Enhanced API blocking with stealth ---
+    if (applyProtection) {
+      // Battery API blocking
+      if (settings.blockBattery) {
+        try {
+          if ('getBattery' in navigator) {
+            Object.defineProperty(navigator, 'getBattery', {
+              value: cloneFunctionSignature(navigator.getBattery, function() {
+                return Promise.reject(new DOMException('Battery API not supported', 'NotSupportedError'));
+              }),
+              configurable: true
+            });
+          }
+        } catch(_) {}
+      }
+
+      // Gamepad API blocking  
+      if (settings.blockGamepad) {
+        try {
+          if ('getGamepads' in navigator) {
+            Object.defineProperty(navigator, 'getGamepads', {
+              value: cloneFunctionSignature(navigator.getGamepads, function() {
+                return []; // Return empty array instead of blocking completely
+              }),
+              configurable: true
+            });
+          }
+          // Block gamepad events more stealthily
+          const originalAddEventListener = EventTarget.prototype.addEventListener;
+          EventTarget.prototype.addEventListener = cloneFunctionSignature(originalAddEventListener, function(type, listener, ...args) {
+            if (type === 'gamepadconnected' || type === 'gamepaddisconnected') {
+              // Silently ignore gamepad event listeners
+              return;
+            }
+            return originalAddEventListener.call(this, type, listener, ...args);
+          });
+        } catch(_) {}
+      }
+
+      // WebRTC blocking with stealth
+      if (settings.blockWebRTC) {
+        try {
+          // Block RTCPeerConnection
+          window.RTCPeerConnection = cloneFunctionSignature(window.RTCPeerConnection, function() {
+            throw new DOMException('WebRTC not supported', 'NotSupportedError');
+          });
+          window.webkitRTCPeerConnection = window.RTCPeerConnection;
+          window.mozRTCPeerConnection = window.RTCPeerConnection;
+          
+          // Block getUserMedia more stealthily
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia = cloneFunctionSignature(navigator.mediaDevices.getUserMedia, function() {
+              return Promise.reject(new DOMException('Requested device not found', 'NotFoundError'));
+            });
+          }
+        } catch(_) {}
+      }
+    }
+
+    // --- Advanced stealth: Function integrity checks evasion ---
+    if (applyProtection) {
+      // Enhanced toString cache for better signature preservation
+      const originalFunctionToString = Function.prototype.toString;
+      Function.prototype.toString = cloneFunctionSignature(originalFunctionToString, function() {
+        const cached = toStringCache.get(this);
+        if (cached) {
+          return originalFunctionToString.call(cached);
+        }
+        return originalFunctionToString.call(this);
+      });
+      
+      // Stealth timing adjustments to avoid detection
+      const originalPerformanceNow = performance.now;
+      performance.now = cloneFunctionSignature(originalPerformanceNow, function() {
+        const realTime = originalPerformanceNow.call(this);
+        // Add small random jitter to timing to avoid precise timing attacks
+        return realTime + (Math.random() - 0.5) * 0.1;
+      });
+      
+      // Additional device fingerprinting protection
+      if (settings.spoofHardware) {
+        try {
+          // Override deviceMemory if available
+          if ('deviceMemory' in navigator) {
+            Object.defineProperty(navigator, 'deviceMemory', {
+              get: cloneFunctionSignature(function(){}, function() {
+                return persona && persona.deviceMemory ? persona.deviceMemory : 8; // Default to 8GB
+              }),
+              configurable: true
+            });
+          }
+          
+          // Override connection info if available
+          if ('connection' in navigator && navigator.connection) {
+            const conn = navigator.connection;
+            const connectionProxy = new Proxy(conn, {
+              get(target, prop) {
+                switch(prop) {
+                  case 'effectiveType': return '4g';
+                  case 'downlink': return 10;
+                  case 'rtt': return 50;
+                  default: return Reflect.get(target, prop);
+                }
+              }
+            });
+            Object.defineProperty(navigator, 'connection', {
+              get: cloneFunctionSignature(function(){}, function() { return connectionProxy; }),
+              configurable: true
+            });
+          }
+        } catch(_) {}
+      }
+    }
+
     // --- Enhanced fingerprinting detection (stealthy) ---
     if (applyProtection && settings.detectFingerprinting){
       let fpCount = 0;

@@ -1,0 +1,29 @@
+# Development files
+*.backup
+*_broken.js
+*_test.js
+*_debug.js
+
+# Temporary files  
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+node_modules/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
