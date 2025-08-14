@@ -51,9 +51,11 @@ function updateIcon(tabId) {
         "64": "icons/shield64.png",
         "128": "icons/shield128.png"
       } : {
-        "16": "icons/icon16-disabled.png",
-        "48": "icons/icon48-disabled.png",
-        "128": "icons/icon128-disabled.png"
+        "16": "icons/shield16.png",
+        "32": "icons/shield32.png",
+        "48": "icons/shield48.png",
+        "64": "icons/shield64.png",
+        "128": "icons/shield128.png"
       }
     });
 
