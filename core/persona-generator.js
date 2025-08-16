@@ -60,9 +60,9 @@ export async function loadPersonas() {
         pixelDepth: 24
       },
       devicePixelRatio: 1,
-      timezone: 'America/New_York',
-      language: 'en-US',
-      languages: ['en-US', 'en'],
+      timezone: 'America/Buenos_Aires',
+      language: 'es-AR',
+      languages: ['es-AR', 'es'],
       webgl: {
         vendor: 'Google Inc.',
         renderer: 'ANGLE (Intel, Intel(R) HD Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)'

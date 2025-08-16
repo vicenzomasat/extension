@@ -32,7 +32,85 @@ chrome.runtime.onInstalled.addListener(() => {
     };
     chrome.storage.sync.set(Object.assign({}, defaults, current || {}));
   });
+
+  // Setup DNR rules for HTTP header normalization
+  setupHeaderNormalizationRules();
 });
+
+// Setup dynamic DNR rules for header normalization (main_frame/sub_frame only)
+async function setupHeaderNormalizationRules() {
+  try {
+    // Remove any existing rules first
+    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+    const rulesToRemove = existingRules.filter(rule => 
+      rule.id >= 91001 && rule.id <= 91003
+    ).map(rule => rule.id);
+    
+    if (rulesToRemove.length > 0) {
+      await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: rulesToRemove });
+    }
+
+    // Add new header normalization rules
+    const headerRules = [
+      {
+        id: 91001,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            {
+              header: 'Accept-Language',
+              operation: 'set',
+              value: 'es-AR,es;q=0.9'
+            }
+          ]
+        },
+        condition: {
+          resourceTypes: ['main_frame', 'sub_frame']
+        }
+      },
+      {
+        id: 91002,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            {
+              header: 'Accept',
+              operation: 'set',
+              value: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
+            }
+          ]
+        },
+        condition: {
+          resourceTypes: ['main_frame', 'sub_frame']
+        }
+      },
+      {
+        id: 91003,
+        priority: 1,
+        action: {
+          type: 'modifyHeaders',
+          requestHeaders: [
+            {
+              header: 'Accept-Encoding',
+              operation: 'set',
+              value: 'gzip, deflate, br, zstd'
+            }
+          ]
+        },
+        condition: {
+          resourceTypes: ['main_frame', 'sub_frame']
+        }
+      }
+    ];
+
+    await chrome.declarativeNetRequest.updateDynamicRules({ addRules: headerRules });
+    console.log('Header normalization rules installed');
+  } catch (error) {
+    console.error('Failed to setup header normalization rules:', error);
+  }
+}
 
 // Tracking fingerprinting attempts per tab
 const tabDetections = new Map();
@@ -130,6 +208,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'FINGERPRINT_STATS') {
     const stats = fingerprintDetector.getStats();
     sendResponse({ success: true, stats });
+    return true;
+  }
+  
+  // NEW: Handle ps:updateHeaders requests for runtime header adjustments
+  if (request.type === 'ps:updateHeaders') {
+    (async () => {
+      try {
+        await setupHeaderNormalizationRules();
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error('Error updating headers:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
   
