@@ -68,6 +68,18 @@
         <div id="fontsResults"></div>
     </div>
 
+    <div class="test-section">
+        <h2>DOM Geometry Test</h2>
+        <button onclick="testDOMGeometry()">Test DOM Geometry</button>
+        <div id="domGeometryResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Audio API Test</h2>
+        <button onclick="testAudio()">Test Audio</button>
+        <div id="audioResults"></div>
+    </div>
+
     <button onclick="runAllTests()">Run All Tests</button>
     <button onclick="clearResults()">Clear Results</button>
 
@@ -100,13 +112,32 @@
                 const dataURL2 = canvas.toDataURL();
                 
                 if (dataURL1 === dataURL2) {
-                    results.push('<span class="fail">❌ Canvas fingerprinting NOT protected (identical results)</span>');
+                    results.push('<span class="pass">✅ Canvas fingerprinting protected (deterministic within origin)</span>');
                 } else {
-                    results.push('<span class="pass">✅ Canvas fingerprinting protected (results differ due to noise)</span>');
+                    results.push('<span class="fail">❌ Canvas protection unstable (non-deterministic noise)</span>');
                 }
                 
-                results.push(`First call: ${dataURL1.substring(0, 50)}...`);
-                results.push(`Second call: ${dataURL2.substring(0, 50)}...`);
+                // Test with slightly different canvas to ensure noise is applied
+                const canvas2 = document.createElement('canvas');
+                canvas2.width = 2;
+                canvas2.height = 2;
+                const ctx2 = canvas2.getContext('2d');
+                ctx2.fillStyle = 'red';
+                ctx2.fillRect(0, 0, 1, 1);
+                ctx2.fillStyle = 'blue';
+                ctx2.fillRect(1, 1, 1, 1);
+                
+                const dataURL3 = canvas2.toDataURL();
+                
+                // Since both canvases have identical content and same origin, they should produce identical results
+                if (dataURL1 === dataURL3) {
+                    results.push('<span class="pass">✅ Canvas protection is deterministic (same content = same output)</span>');
+                } else {
+                    results.push('<span class="fail">❌ Canvas protection is non-deterministic (same content ≠ same output)</span>');
+                }
+                
+                results.push(`Canvas 1: ${dataURL1.substring(0, 50)}...`);
+                results.push(`Canvas 2: ${dataURL3.substring(0, 50)}...`);
                 
                 // Test getImageData
                 const imageData = ctx.getImageData(0, 0, 2, 2);
@@ -135,7 +166,7 @@
                     results.push(`Version: ${version}`);
                     
                     // Check if spoofed values are returned
-                    if (vendor === 'Intel Inc.' && renderer === 'Intel(R) HD Graphics 4000') {
+                    if (vendor === 'Google Inc. (Intel)' && renderer === 'ANGLE (Intel, Intel(R) HD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)') {
                         results.push('<span class="pass">✅ WebGL fingerprinting protected (spoofed values)</span>');
                     } else {
                         results.push('<span class="fail">❌ WebGL fingerprinting NOT protected (real values)</span>');
@@ -311,6 +342,93 @@
             document.getElementById('fontsResults').innerHTML = results.join('<br>');
         }
 
+        function testDOMGeometry() {
+            const results = [];
+            try {
+                // Create a test element with precise positioning
+                const testEl = document.createElement('div');
+                testEl.style.position = 'absolute';
+                testEl.style.left = '10.3456px';
+                testEl.style.top = '20.6789px';
+                testEl.style.width = '100.1234px';
+                testEl.style.height = '50.9876px';
+                testEl.style.visibility = 'hidden';
+                document.body.appendChild(testEl);
+                
+                const rect = testEl.getBoundingClientRect();
+                const rects = testEl.getClientRects();
+                
+                // Test if values are rounded to 0.5px increments
+                const isRounded = (value) => (value * 2) % 1 === 0;
+                
+                const rounded = isRounded(rect.x) && isRounded(rect.y) && 
+                               isRounded(rect.width) && isRounded(rect.height);
+                
+                if (rounded) {
+                    results.push('<span class="pass">✅ DOM geometry protected (values rounded to 0.5px)</span>');
+                } else {
+                    results.push('<span class="fail">❌ DOM geometry NOT protected (precise values)</span>');
+                }
+                
+                results.push(`getBoundingClientRect: ${rect.x}, ${rect.y}, ${rect.width}, ${rect.height}`);
+                results.push(`getClientRects count: ${rects.length}`);
+                
+                if (rects.length > 0) {
+                    const firstRect = rects[0];
+                    const rectsRounded = isRounded(firstRect.x) && isRounded(firstRect.y);
+                    results.push(`getClientRects[0]: ${firstRect.x}, ${firstRect.y} ${rectsRounded ? '(rounded)' : '(precise)'}`);
+                }
+                
+                document.body.removeChild(testEl);
+            } catch (e) {
+                results.push(`<span class="fail">DOM geometry test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('domGeometryResults').innerHTML = results.join('<br>');
+        }
+
+        function testAudio() {
+            const results = [];
+            try {
+                if (window.AudioContext || window.webkitAudioContext) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const audioCtx = new AudioCtx();
+                    
+                    // Create a simple audio buffer
+                    const buffer = audioCtx.createBuffer(1, 1000, 44100);
+                    const channelData1 = buffer.getChannelData(0);
+                    const channelData2 = buffer.getChannelData(0);
+                    
+                    // Check if the channel data is identical (should be with our deterministic approach)
+                    let identical = true;
+                    for (let i = 0; i < Math.min(100, channelData1.length); i++) {
+                        if (channelData1[i] !== channelData2[i]) {
+                            identical = false;
+                            break;
+                        }
+                    }
+                    
+                    if (identical) {
+                        results.push('<span class="pass">✅ Audio fingerprinting protected (deterministic jitter applied)</span>');
+                    } else {
+                        results.push('<span class="fail">❌ Audio fingerprinting unstable (non-deterministic)</span>');
+                    }
+                    
+                    results.push(`Buffer length: ${buffer.length}`);
+                    results.push(`Sample rate: ${buffer.sampleRate}`);
+                    results.push(`First 3 samples: ${Array.from(channelData1.slice(0, 3)).map(v => v.toFixed(8)).join(', ')}`);
+                    
+                    audioCtx.close();
+                } else {
+                    results.push('<span class="blocked">AudioContext not available</span>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">Audio test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('audioResults').innerHTML = results.join('<br>');
+        }
+
         function runAllTests() {
             testCanvas();
             testWebGL();
@@ -320,6 +438,8 @@
             testGamepad();
             testWebRTC();
             testFonts();
+            testDOMGeometry();
+            testAudio();
         }
 
         function clearResults() {

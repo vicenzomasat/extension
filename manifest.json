@@ -14,7 +14,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["patches.js", "content.js"],
+      "js": ["content.js"],
       "run_at": "document_start",
       "all_frames": true,
       "match_about_blank": true,
@@ -37,7 +37,7 @@
   "options_ui": { "page": "options.html", "open_in_tab": true },
   "web_accessible_resources": [
     {
-      "resources": ["data/personas.json"],
+      "resources": ["data/personas.json", "inject.js"],
       "matches": ["<all_urls>"]
     }
   ],
