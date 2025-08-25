@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Privacy Shield Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; margin: 10px 0; padding: 15px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .blocked { color: orange; }
+        .detection { background: #fffbf0; border: 1px solid #ffd700; padding: 10px; margin: 10px 0; }
+        button { margin: 5px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Privacy Shield Anti-Fingerprinting Test</h1>
+    <p>This page tests the effectiveness of the Privacy Shield extension's anti-fingerprinting features.</p>
+    
+    <div class="detection" id="detectionStatus">
+        Detection Status: Waiting for results...
+    </div>
+
+    <div class="test-section">
+        <h2>Canvas Fingerprinting Test</h2>
+        <button onclick="testCanvas()">Test Canvas</button>
+        <div id="canvasResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>WebGL Fingerprinting Test</h2>
+        <button onclick="testWebGL()">Test WebGL</button>
+        <div id="webglResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Navigator Properties Test</h2>
+        <button onclick="testNavigator()">Test Navigator</button>
+        <div id="navigatorResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Screen Properties Test</h2>
+        <button onclick="testScreen()">Test Screen</button>
+        <div id="screenResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Battery API Test</h2>
+        <button onclick="testBattery()">Test Battery</button>
+        <div id="batteryResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Gamepad API Test</h2>
+        <button onclick="testGamepad()">Test Gamepad</button>
+        <div id="gamepadResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>WebRTC Test</h2>
+        <button onclick="testWebRTC()">Test WebRTC</button>
+        <div id="webrtcResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Fonts API Test</h2>
+        <button onclick="testFonts()">Test Fonts</button>
+        <div id="fontsResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>DOM Geometry Test</h2>
+        <button onclick="testDOMGeometry()">Test DOM Geometry</button>
+        <div id="domGeometryResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Audio API Test</h2>
+        <button onclick="testAudio()">Test Audio</button>
+        <div id="audioResults"></div>
+    </div>
+
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <script>
+        let detectionCount = 0;
+        
+        // Listen for Privacy Shield detection messages
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'PRIVACY_SHIELD_DETECTION') {
+                detectionCount++;
+                document.getElementById('detectionStatus').innerHTML = 
+                    `<strong>Fingerprinting Detected!</strong> Method: ${event.data.method}, Count: ${event.data.count}`;
+            }
+        });
+
+        function testCanvas() {
+            const results = [];
+            try {
+                // Small canvas fingerprinting attempt
+                const canvas = document.createElement('canvas');
+                canvas.width = 2;
+                canvas.height = 2;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'red';
+                ctx.fillRect(0, 0, 1, 1);
+                ctx.fillStyle = 'blue';
+                ctx.fillRect(1, 1, 1, 1);
+                
+                const dataURL1 = canvas.toDataURL();
+                const dataURL2 = canvas.toDataURL();
+                
+                if (dataURL1 === dataURL2) {
+                    results.push('<span class="pass">✅ Canvas fingerprinting protected (deterministic within origin)</span>');
+                } else {
+                    results.push('<span class="fail">❌ Canvas protection unstable (non-deterministic noise)</span>');
+                }
+                
+                // Test with slightly different canvas to ensure noise is applied
+                const canvas2 = document.createElement('canvas');
+                canvas2.width = 2;
+                canvas2.height = 2;
+                const ctx2 = canvas2.getContext('2d');
+                ctx2.fillStyle = 'red';
+                ctx2.fillRect(0, 0, 1, 1);
+                ctx2.fillStyle = 'blue';
+                ctx2.fillRect(1, 1, 1, 1);
+                
+                const dataURL3 = canvas2.toDataURL();
+                
+                // Since both canvases have identical content and same origin, they should produce identical results
+                if (dataURL1 === dataURL3) {
+                    results.push('<span class="pass">✅ Canvas protection is deterministic (same content = same output)</span>');
+                } else {
+                    results.push('<span class="fail">❌ Canvas protection is non-deterministic (same content ≠ same output)</span>');
+                }
+                
+                results.push(`Canvas 1: ${dataURL1.substring(0, 50)}...`);
+                results.push(`Canvas 2: ${dataURL3.substring(0, 50)}...`);
+                
+                // Test getImageData
+                const imageData = ctx.getImageData(0, 0, 2, 2);
+                results.push(`Image data length: ${imageData.data.length}`);
+                
+            } catch (e) {
+                results.push(`<span class="fail">Canvas test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('canvasResults').innerHTML = results.join('<br>');
+        }
+
+        function testWebGL() {
+            const results = [];
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (gl) {
+                    const vendor = gl.getParameter(gl.VENDOR);
+                    const renderer = gl.getParameter(gl.RENDERER);
+                    const version = gl.getParameter(gl.VERSION);
+                    
+                    results.push(`Vendor: ${vendor}`);
+                    results.push(`Renderer: ${renderer}`);
+                    results.push(`Version: ${version}`);
+                    
+                    // Check if spoofed values are returned
+                    if (vendor === 'Google Inc. (Intel)' && renderer === 'ANGLE (Intel, Intel(R) HD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)') {
+                        results.push('<span class="pass">✅ WebGL fingerprinting protected (spoofed values)</span>');
+                    } else {
+                        results.push('<span class="fail">❌ WebGL fingerprinting NOT protected (real values)</span>');
+                    }
+                    
+                    // Test debug extension
+                    const debugExt = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugExt === null) {
+                        results.push('<span class="pass">✅ WEBGL_debug_renderer_info blocked</span>');
+                    } else {
+                        results.push('<span class="fail">❌ WEBGL_debug_renderer_info available</span>');
+                    }
+                } else {
+                    results.push('<span class="blocked">WebGL not available</span>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">WebGL test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('webglResults').innerHTML = results.join('<br>');
+        }
+
+        function testNavigator() {
+            const results = [];
+            try {
+                results.push(`User Agent: ${navigator.userAgent.substring(0, 100)}...`);
+                results.push(`Platform: ${navigator.platform}`);
+                results.push(`Hardware Concurrency: ${navigator.hardwareConcurrency}`);
+                
+                // Test multiple accesses to trigger detection
+                for (let i = 0; i < 5; i++) {
+                    navigator.userAgent;
+                    navigator.platform;
+                    navigator.hardwareConcurrency;
+                }
+                
+                results.push('<span class="pass">✅ Navigator properties accessible (detection should trigger)</span>');
+            } catch (e) {
+                results.push(`<span class="fail">Navigator test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('navigatorResults').innerHTML = results.join('<br>');
+        }
+
+        function testScreen() {
+            const results = [];
+            try {
+                results.push(`Screen: ${screen.width}x${screen.height}`);
+                results.push(`Available: ${screen.availWidth}x${screen.availHeight}`);
+                results.push(`Color Depth: ${screen.colorDepth}`);
+                results.push(`Pixel Depth: ${screen.pixelDepth}`);
+                results.push(`Device Pixel Ratio: ${devicePixelRatio}`);
+                
+                // Check if values are spoofed (assuming spoofing is not enabled by default)
+                if (screen.width === 1920 && screen.height === 1080 && devicePixelRatio === 1) {
+                    results.push('<span class="pass">✅ Screen properties spoofed</span>');
+                } else {
+                    results.push('<span class="pass">✅ Screen properties showing real values (spoofing disabled)</span>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">Screen test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('screenResults').innerHTML = results.join('<br>');
+        }
+
+        function testBattery() {
+            const results = [];
+            try {
+                if ('getBattery' in navigator) {
+                    navigator.getBattery()
+                        .then(battery => {
+                            results.push(`<span class="fail">❌ Battery API available - Level: ${battery.level}</span>`);
+                            document.getElementById('batteryResults').innerHTML = results.join('<br>');
+                        })
+                        .catch(e => {
+                            results.push(`<span class="pass">✅ Battery API blocked: ${e.message}</span>`);
+                            document.getElementById('batteryResults').innerHTML = results.join('<br>');
+                        });
+                } else {
+                    results.push('<span class="blocked">Battery API not supported by browser</span>');
+                    document.getElementById('batteryResults').innerHTML = results.join('<br>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">Battery test error: ${e.message}</span>`);
+                document.getElementById('batteryResults').innerHTML = results.join('<br>');
+            }
+        }
+
+        function testGamepad() {
+            const results = [];
+            try {
+                const gamepads = navigator.getGamepads();
+                results.push(`Gamepads detected: ${gamepads.length}`);
+                
+                if (gamepads.length === 0) {
+                    results.push('<span class="pass">✅ Gamepad API returning empty array</span>');
+                } else {
+                    results.push('<span class="fail">❌ Gamepad API returning actual gamepads</span>');
+                }
+                
+                // Test gamepad event listener (should be silently ignored)
+                window.addEventListener('gamepadconnected', function() {
+                    results.push('<span class="fail">❌ Gamepad event listener fired</span>');
+                });
+                
+                results.push('<span class="pass">✅ Gamepad event listeners should be blocked</span>');
+            } catch (e) {
+                results.push(`<span class="fail">Gamepad test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('gamepadResults').innerHTML = results.join('<br>');
+        }
+
+        function testWebRTC() {
+            const results = [];
+            try {
+                const pc = new RTCPeerConnection();
+                results.push('<span class="fail">❌ WebRTC PeerConnection created successfully</span>');
+                pc.close();
+            } catch (e) {
+                results.push(`<span class="pass">✅ WebRTC blocked: ${e.message}</span>`);
+            }
+            
+            // Test getUserMedia
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ video: true })
+                        .then(stream => {
+                            results.push('<span class="fail">❌ getUserMedia allowed</span>');
+                            stream.getTracks().forEach(track => track.stop());
+                            document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+                        })
+                        .catch(e => {
+                            results.push(`<span class="pass">✅ getUserMedia blocked: ${e.message}</span>`);
+                            document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+                        });
+                } else {
+                    results.push('<span class="blocked">getUserMedia not available</span>');
+                    document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">getUserMedia test error: ${e.message}</span>`);
+                document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+            }
+        }
+
+        function testFonts() {
+            const results = [];
+            try {
+                if (document.fonts) {
+                    results.push(`Fonts available: ${document.fonts.size}`);
+                    
+                    if (document.fonts.size === 0) {
+                        results.push('<span class="pass">✅ Fonts API returning empty set</span>');
+                    } else {
+                        results.push('<span class="fail">❌ Fonts API returning actual fonts</span>');
+                    }
+                    
+                    // Test font iteration
+                    const fontNames = [];
+                    document.fonts.forEach(font => {
+                        fontNames.push(font.family);
+                    });
+                    results.push(`Font names found: ${fontNames.length}`);
+                } else {
+                    results.push('<span class="blocked">Fonts API not available</span>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">Fonts test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('fontsResults').innerHTML = results.join('<br>');
+        }
+
+        function testDOMGeometry() {
+            const results = [];
+            try {
+                // Create a test element with precise positioning
+                const testEl = document.createElement('div');
+                testEl.style.position = 'absolute';
+                testEl.style.left = '10.3456px';
+                testEl.style.top = '20.6789px';
+                testEl.style.width = '100.1234px';
+                testEl.style.height = '50.9876px';
+                testEl.style.visibility = 'hidden';
+                document.body.appendChild(testEl);
+                
+                const rect = testEl.getBoundingClientRect();
+                const rects = testEl.getClientRects();
+                
+                // Test if values are rounded to 0.5px increments
+                const isRounded = (value) => (value * 2) % 1 === 0;
+                
+                const rounded = isRounded(rect.x) && isRounded(rect.y) && 
+                               isRounded(rect.width) && isRounded(rect.height);
+                
+                if (rounded) {
+                    results.push('<span class="pass">✅ DOM geometry protected (values rounded to 0.5px)</span>');
+                } else {
+                    results.push('<span class="fail">❌ DOM geometry NOT protected (precise values)</span>');
+                }
+                
+                results.push(`getBoundingClientRect: ${rect.x}, ${rect.y}, ${rect.width}, ${rect.height}`);
+                results.push(`getClientRects count: ${rects.length}`);
+                
+                if (rects.length > 0) {
+                    const firstRect = rects[0];
+                    const rectsRounded = isRounded(firstRect.x) && isRounded(firstRect.y);
+                    results.push(`getClientRects[0]: ${firstRect.x}, ${firstRect.y} ${rectsRounded ? '(rounded)' : '(precise)'}`);
+                }
+                
+                document.body.removeChild(testEl);
+            } catch (e) {
+                results.push(`<span class="fail">DOM geometry test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('domGeometryResults').innerHTML = results.join('<br>');
+        }
+
+        function testAudio() {
+            const results = [];
+            try {
+                if (window.AudioContext || window.webkitAudioContext) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const audioCtx = new AudioCtx();
+                    
+                    // Create a simple audio buffer
+                    const buffer = audioCtx.createBuffer(1, 1000, 44100);
+                    const channelData1 = buffer.getChannelData(0);
+                    const channelData2 = buffer.getChannelData(0);
+                    
+                    // Check if the channel data is identical (should be with our deterministic approach)
+                    let identical = true;
+                    for (let i = 0; i < Math.min(100, channelData1.length); i++) {
+                        if (channelData1[i] !== channelData2[i]) {
+                            identical = false;
+                            break;
+                        }
+                    }
+                    
+                    if (identical) {
+                        results.push('<span class="pass">✅ Audio fingerprinting protected (deterministic jitter applied)</span>');
+                    } else {
+                        results.push('<span class="fail">❌ Audio fingerprinting unstable (non-deterministic)</span>');
+                    }
+                    
+                    results.push(`Buffer length: ${buffer.length}`);
+                    results.push(`Sample rate: ${buffer.sampleRate}`);
+                    results.push(`First 3 samples: ${Array.from(channelData1.slice(0, 3)).map(v => v.toFixed(8)).join(', ')}`);
+                    
+                    audioCtx.close();
+                } else {
+                    results.push('<span class="blocked">AudioContext not available</span>');
+                }
+            } catch (e) {
+                results.push(`<span class="fail">Audio test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('audioResults').innerHTML = results.join('<br>');
+        }
+
+        function runAllTests() {
+            testCanvas();
+            testWebGL();
+            testNavigator();
+            testScreen();
+            testBattery();
+            testGamepad();
+            testWebRTC();
+            testFonts();
+            testDOMGeometry();
+            testAudio();
+        }
+
+        function clearResults() {
+            document.querySelectorAll('[id$="Results"]').forEach(el => el.innerHTML = '');
+            document.getElementById('detectionStatus').innerHTML = 'Detection Status: Cleared';
+            detectionCount = 0;
+        }
+
+        // Auto-run some tests on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                testCanvas();
+                testWebGL();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>New Protections Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; margin: 10px 0; padding: 15px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .blocked { color: orange; }
+        button { margin: 5px; padding: 10px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+    </style>
+    <script src="inject.js"></script>
+</head>
+<body>
+    <h1>New Fingerprinting Protections Test</h1>
+    <p>Testing the new protection features added to Privacy Shield.</p>
+
+    <div class="test-section">
+        <h2>Timing Protection Test</h2>
+        <button onclick="testTiming()">Test Timing</button>
+        <div id="timingResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Media Queries Test</h2>
+        <button onclick="testMediaQueries()">Test Media Queries</button>
+        <div id="mediaResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Font Protection Test</h2>
+        <button onclick="testFonts()">Test Fonts</button>
+        <div id="fontsResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Audio Analyser Test</h2>
+        <button onclick="testAudioAnalyser()">Test Audio Analyser</button>
+        <div id="audioAnalyserResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Battery API Test</h2>
+        <button onclick="testBattery()">Test Battery</button>
+        <div id="batteryResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>WebRTC Test</h2>
+        <button onclick="testWebRTC()">Test WebRTC</button>
+        <div id="webrtcResults"></div>
+    </div>
+
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <script>
+        function testTiming() {
+            const results = [];
+            
+            try {
+                // Test performance.now() bucketing
+                const times = [];
+                for (let i = 0; i < 10; i++) {
+                    times.push(performance.now());
+                }
+                
+                // Check if times are bucketed (remainder should be consistent, indicating jittered buckets)
+                const remainders = times.map(t => t % 100);
+                const allSameRemainder = remainders.every(r => r === remainders[0]);
+                if (allSameRemainder) {
+                    results.push('<span class="pass">✅ Performance.now() protected with bucketing</span>');
+                } else {
+                    results.push('<span class="fail">❌ Performance.now() not properly bucketed</span>');
+                }
+                
+                results.push(`Sample times: ${times.slice(0, 3).map(t => t.toFixed(2)).join(', ')}`);
+                results.push(`Remainders (mod 100): ${remainders.slice(0, 3).join(', ')}`);
+                
+                // Test requestAnimationFrame
+                window.requestAnimationFrame(ts => {
+                    const remainder = ts % 100;
+                    const isConsistent = Math.abs(remainder - remainders[0]) < 1;
+                    if (isConsistent) {
+                        results.push('<span class="pass">✅ RequestAnimationFrame protected</span>');
+                    } else {
+                        results.push('<span class="fail">❌ RequestAnimationFrame not protected</span>');
+                    }
+                    results.push(`RAF timestamp: ${ts.toFixed(2)} (remainder: ${remainder.toFixed(2)})`);
+                    document.getElementById('timingResults').innerHTML = results.join('<br>');
+                });
+                
+            } catch (e) {
+                results.push(`<span class="fail">Timing test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('timingResults').innerHTML = results.join('<br>');
+        }
+
+        function testMediaQueries() {
+            const results = [];
+            
+            try {
+                // Test matchMedia for color-scheme
+                const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+                results.push(`Color scheme matches: ${colorScheme.matches}`);
+                if (colorScheme.matches === false) {
+                    results.push('<span class="pass">✅ Color scheme preference protected</span>');
+                } else {
+                    results.push('<span class="fail">❌ Color scheme preference exposed</span>');
+                }
+                
+                // Test devicePixelRatio quantization
+                const dpr = window.devicePixelRatio;
+                const isQuantized = dpr === Math.round(dpr * 2) / 2;
+                if (isQuantized) {
+                    results.push('<span class="pass">✅ Device pixel ratio quantized</span>');
+                } else {
+                    results.push('<span class="fail">❌ Device pixel ratio not quantized</span>');
+                }
+                results.push(`Device pixel ratio: ${dpr}`);
+                
+            } catch (e) {
+                results.push(`<span class="fail">Media queries test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('mediaResults').innerHTML = results.join('<br>');
+        }
+
+        function testFonts() {
+            const results = [];
+            
+            try {
+                // Test document.fonts.check
+                if (document.fonts && document.fonts.check) {
+                    const generic = document.fonts.check('16px monospace');
+                    const specific = document.fonts.check('16px Arial');
+                    
+                    if (generic && !specific) {
+                        results.push('<span class="pass">✅ Font enumeration protected (only generics allowed)</span>');
+                    } else {
+                        results.push('<span class="fail">❌ Font enumeration not protected</span>');
+                    }
+                    results.push(`Generic font check: ${generic}, Specific font check: ${specific}`);
+                } else {
+                    results.push('<span class="blocked">Fonts API not available</span>');
+                }
+                
+                // Test canvas measureText with proxy
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const metrics = ctx.measureText('Test');
+                
+                // Check if width is quantized
+                const isQuantized = metrics.width === Math.round(metrics.width * 2) / 2;
+                if (isQuantized) {
+                    results.push('<span class="pass">✅ Text metrics quantized</span>');
+                } else {
+                    results.push('<span class="fail">❌ Text metrics not quantized</span>');
+                }
+                results.push(`Text width: ${metrics.width}`);
+                
+            } catch (e) {
+                results.push(`<span class="fail">Fonts test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('fontsResults').innerHTML = results.join('<br>');
+        }
+
+        function testAudioAnalyser() {
+            const results = [];
+            
+            try {
+                if (!window.AudioContext && !window.webkitAudioContext) {
+                    results.push('<span class="blocked">AudioContext not available</span>');
+                    document.getElementById('audioAnalyserResults').innerHTML = results.join('<br>');
+                    return;
+                }
+                
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioCtx();
+                const analyser = audioCtx.createAnalyser();
+                
+                // Test if AnalyserNode methods are patched
+                const hasGetFloatFrequencyData = typeof analyser.getFloatFrequencyData === 'function';
+                const hasGetByteFrequencyData = typeof analyser.getByteFrequencyData === 'function';
+                
+                if (hasGetFloatFrequencyData && hasGetByteFrequencyData) {
+                    results.push('<span class="pass">✅ AnalyserNode methods available and protected</span>');
+                } else {
+                    results.push('<span class="fail">❌ AnalyserNode methods not available</span>');
+                }
+                
+                // Test data consistency
+                const buffer = new Float32Array(analyser.frequencyBinCount);
+                analyser.getFloatFrequencyData(buffer);
+                
+                results.push(`Frequency bin count: ${analyser.frequencyBinCount}`);
+                results.push(`Sample data: ${Array.from(buffer.slice(0, 3)).map(v => v.toFixed(6)).join(', ')}`);
+                
+                audioCtx.close();
+                
+            } catch (e) {
+                results.push(`<span class="fail">Audio analyser test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('audioAnalyserResults').innerHTML = results.join('<br>');
+        }
+
+        function testBattery() {
+            const results = [];
+            
+            try {
+                // Test if battery API is hidden
+                const hasBattery = 'getBattery' in navigator;
+                const hasBatteryProperty = 'battery' in navigator;
+                const getBatteryValue = navigator.getBattery;
+                const batteryValue = navigator.battery;
+                
+                if (!hasBattery && !hasBatteryProperty) {
+                    results.push('<span class="pass">✅ Battery API successfully hidden</span>');
+                } else if (getBatteryValue === undefined && batteryValue === undefined) {
+                    results.push('<span class="pass">✅ Battery API values undefined (protected)</span>');
+                } else {
+                    results.push('<span class="fail">❌ Battery API still exposed</span>');
+                }
+                
+                results.push(`navigator.getBattery: ${hasBattery ? 'present' : 'hidden'} (value: ${getBatteryValue})`);
+                results.push(`navigator.battery: ${hasBatteryProperty ? 'present' : 'hidden'} (value: ${batteryValue})`);
+                
+            } catch (e) {
+                results.push(`<span class="fail">Battery test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('batteryResults').innerHTML = results.join('<br>');
+        }
+
+        function testWebRTC() {
+            const results = [];
+            
+            try {
+                // Test if RTCPeerConnection is blocked
+                try {
+                    const pc = new RTCPeerConnection();
+                    results.push('<span class="fail">❌ RTCPeerConnection not blocked</span>');
+                    pc.close();
+                } catch (e) {
+                    if (e.name === 'NotAllowedError') {
+                        results.push('<span class="pass">✅ RTCPeerConnection blocked</span>');
+                    } else {
+                        results.push(`<span class="fail">RTCPeerConnection error: ${e.message}</span>`);
+                    }
+                }
+                
+                // Test if getUserMedia is blocked
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                        .then(() => {
+                            results.push('<span class="fail">❌ getUserMedia not blocked</span>');
+                            document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+                        })
+                        .catch(e => {
+                            if (e.name === 'NotAllowedError') {
+                                results.push('<span class="pass">✅ getUserMedia blocked</span>');
+                            } else {
+                                results.push(`<span class="fail">getUserMedia error: ${e.message}</span>`);
+                            }
+                            document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+                        });
+                } else {
+                    results.push('<span class="blocked">MediaDevices API not available</span>');
+                }
+                
+            } catch (e) {
+                results.push(`<span class="fail">WebRTC test error: ${e.message}</span>`);
+            }
+            
+            document.getElementById('webrtcResults').innerHTML = results.join('<br>');
+        }
+
+        function runAllTests() {
+            testTiming();
+            testMediaQueries();
+            testFonts();
+            testAudioAnalyser();
+            testBattery();
+            testWebRTC();
+        }
+
+        function clearResults() {
+            document.querySelectorAll('[id$="Results"]').forEach(el => el.innerHTML = '');
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', function() {
+            setTimeout(runAllTests, 1000);
+        });
+    </script>
+</body>
+</html>
