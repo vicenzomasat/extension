@@ -1,0 +1,184 @@
+[
+  {
+    "id": "win-chrome-desktop-1",
+    "name": "Windows Chrome Desktop",
+    "os": "windows",
+    "browser": "chrome",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "screen": {
+      "width": 1920,
+      "height": 1080,
+      "availWidth": 1920,
+      "availHeight": 1040,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 1,
+    "timezone": "America/New_York",
+    "language": "en-US",
+    "languages": ["en-US", "en"],
+    "webgl": {
+      "vendor": "Google Inc. (Intel)",
+      "renderer": "ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "hardwareConcurrency": 8,
+    "platform": "Win32"
+  },
+  {
+    "id": "win-chrome-desktop-2",
+    "name": "Windows Chrome Desktop Alt",
+    "os": "windows",
+    "browser": "chrome",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "screen": {
+      "width": 1366,
+      "height": 768,
+      "availWidth": 1366,
+      "availHeight": 728,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 1,
+    "timezone": "America/Los_Angeles",
+    "language": "en-US",
+    "languages": ["en-US", "en"],
+    "webgl": {
+      "vendor": "Google Inc. (NVIDIA)",
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1060 Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "hardwareConcurrency": 6,
+    "platform": "Win32"
+  },
+  {
+    "id": "mac-safari-desktop-1",
+    "name": "MacOS Safari Desktop",
+    "os": "macos",
+    "browser": "safari",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15",
+    "screen": {
+      "width": 2560,
+      "height": 1440,
+      "availWidth": 2560,
+      "availHeight": 1400,
+      "colorDepth": 30,
+      "pixelDepth": 30
+    },
+    "devicePixelRatio": 2,
+    "timezone": "America/New_York",
+    "language": "en-US",
+    "languages": ["en-US", "en"],
+    "webgl": {
+      "vendor": "Apple Inc.",
+      "renderer": "Apple GPU"
+    },
+    "hardwareConcurrency": 8,
+    "platform": "MacIntel"
+  },
+  {
+    "id": "mac-chrome-desktop-1",
+    "name": "MacOS Chrome Desktop",
+    "os": "macos",
+    "browser": "chrome",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "screen": {
+      "width": 1440,
+      "height": 900,
+      "availWidth": 1440,
+      "availHeight": 860,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 2,
+    "timezone": "America/Los_Angeles",
+    "language": "en-US",
+    "languages": ["en-US", "en"],
+    "webgl": {
+      "vendor": "Google Inc. (Apple)",
+      "renderer": "ANGLE (Apple, Apple M1 Pro, OpenGL 4.1 Metal - 83)"
+    },
+    "hardwareConcurrency": 10,
+    "platform": "MacIntel"
+  },
+  {
+    "id": "linux-firefox-desktop-1",
+    "name": "Linux Firefox Desktop",
+    "os": "linux",
+    "browser": "firefox",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/121.0",
+    "screen": {
+      "width": 1920,
+      "height": 1080,
+      "availWidth": 1920,
+      "availHeight": 1040,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 1,
+    "timezone": "Europe/London",
+    "language": "en-GB",
+    "languages": ["en-GB", "en"],
+    "webgl": {
+      "vendor": "Mozilla",
+      "renderer": "Mozilla -- Mesa Intel(R) UHD Graphics 630 (CFL GT2)"
+    },
+    "hardwareConcurrency": 4,
+    "platform": "Linux x86_64"
+  },
+  {
+    "id": "linux-chrome-desktop-1",
+    "name": "Linux Chrome Desktop",
+    "os": "linux",
+    "browser": "chrome",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "screen": {
+      "width": 1680,
+      "height": 1050,
+      "availWidth": 1680,
+      "availHeight": 1010,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 1,
+    "timezone": "Europe/Berlin",
+    "language": "en-US",
+    "languages": ["en-US", "en", "de"],
+    "webgl": {
+      "vendor": "Google Inc. (AMD)",
+      "renderer": "ANGLE (AMD, AMD Radeon RX 580 Series Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "hardwareConcurrency": 6,
+    "platform": "Linux x86_64"
+  },
+  {
+    "id": "win-chrome-es-ar",
+    "name": "Windows Chrome Argentina",
+    "os": "windows",
+    "browser": "chrome",
+    "deviceType": "desktop",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "screen": {
+      "width": 1366,
+      "height": 768,
+      "availWidth": 1366,
+      "availHeight": 728,
+      "colorDepth": 24,
+      "pixelDepth": 24
+    },
+    "devicePixelRatio": 1,
+    "timezone": "America/Buenos_Aires",
+    "language": "es-AR",
+    "languages": ["es-AR", "es", "en"],
+    "webgl": {
+      "vendor": "Google Inc. (Intel)",
+      "renderer": "ANGLE (Intel, Intel(R) HD Graphics 620 Direct3D11 vs_5_0 ps_5_0, D3D11)"
+    },
+    "hardwareConcurrency": 4,
+    "platform": "Win32"
+  }
+]
